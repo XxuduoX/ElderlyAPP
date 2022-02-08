@@ -7,8 +7,13 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import android.widget.Button;
+import android.widget.SearchView;
 import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -17,14 +22,22 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
+import java.io.IOException;
+import java.util.List;
+
 public class MapGuide extends FragmentActivity implements OnMapReadyCallback {
     Location currentLocation;
+    SearchView searchbar;
     FusedLocationProviderClient fusedLocationProviderClient;
+    TextToSpeech textToSpeech;
+    GoogleMap map;
+    SupportMapFragment mapFragment;
     private static final int REQUEST_CODE = 101;
 
     @Override
@@ -34,6 +47,37 @@ public class MapGuide extends FragmentActivity implements OnMapReadyCallback {
 
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
+
+        searchbar=findViewById(R.id.search_bar);
+        mapFragment=(SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        searchbar.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                String location=searchbar.getQuery().toString();
+                List<Address> addressList=null;
+
+                if(location !=null || !location.equals("")){
+                    Geocoder geocoder=new Geocoder(MapGuide.this);
+                    try{
+                        addressList=geocoder.getFromLocationName(location,1);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    Address address=addressList.get(0);
+                    LatLng search_latlng=new LatLng(address.getLatitude(),address.getLongitude());
+                    //map.addMarker(new MarkerOptions().position(search_latlng).title(location));
+                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(search_latlng,20));
+                }
+
+
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String s) {
+                return false;
+            }
+        });
     }
 
     private void fetchLastLocation() {
@@ -62,11 +106,28 @@ public class MapGuide extends FragmentActivity implements OnMapReadyCallback {
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
+        map=googleMap;
+
         LatLng latLng=new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude());
         MarkerOptions markerOptions=new MarkerOptions().position(latLng).title("I AM HERE");
         googleMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
         googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,20));
         googleMap.addMarker(markerOptions);
+
+        UiSettings ui = map.getUiSettings();
+        ui.setCompassEnabled(false);
+        UiSettings ui2 = map.getUiSettings();
+        ui2.setZoomControlsEnabled(true);
+
+        map.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng SelectLatLng) {
+                MarkerOptions newMarker=new MarkerOptions();
+                newMarker.position(SelectLatLng);
+                newMarker.title("target location");
+                map.addMarker(newMarker);
+            }
+        });
 
     }
 
